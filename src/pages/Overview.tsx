@@ -2,10 +2,7 @@ import { useReport } from '../context/ReportContext'
 import StatCard from '../components/StatCard'
 import Card from '../components/Card'
 import ChartWrapper, { darkTooltipStyle } from '../components/ChartWrapper'
-import WhatIfSimulator from '../components/WhatIfSimulator'
-import StreakTracker from '../components/StreakTracker'
-import PeriodComparison from '../components/PeriodComparison'
-import ShareCard from '../components/ShareCard'
+import GoalSetting from '../components/GoalSetting'
 import { formatCurrency, formatCurrencyFull, formatPercent, pnlColor } from '../lib/utils'
 import { fmtCurrencyFull } from '../lib/chart-helpers'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
@@ -105,21 +102,8 @@ export default function Overview() {
         </Card>
       )}
 
-      {/* What-If Simulator */}
-      {report.what_ifs.length > 0 && (
-        <WhatIfSimulator scenarios={report.what_ifs} currentPnl={o.net_realized_pnl} />
-      )}
-
-      {/* Streaks & Achievements */}
-      <StreakTracker streaks={report.streaks} />
-
-      {/* Period Comparison */}
-      {report.pnl_analysis.monthly.length >= 2 && (
-        <PeriodComparison monthly={report.pnl_analysis.monthly} />
-      )}
-
-      {/* Share Card */}
-      <ShareCard report={report} />
+      {/* Monthly P&L Goal */}
+      <GoalSetting />
     </div>
   )
 }

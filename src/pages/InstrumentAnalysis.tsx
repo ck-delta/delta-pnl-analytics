@@ -1,13 +1,15 @@
+import { useMemo } from 'react'
 import { useReport } from '../context/ReportContext'
 import StatCard from '../components/StatCard'
 import Card from '../components/Card'
 import DataTable from '../components/DataTable'
 import ChartWrapper, { darkTooltipStyle } from '../components/ChartWrapper'
+import TokenSpotlight from '../components/TokenSpotlight'
 import { formatCurrency, formatCurrencyFull, formatPercent, pnlColor } from '../lib/utils'
 import { fmtCurrencyFull } from '../lib/chart-helpers'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ScatterChart, Scatter, ZAxis, Cell } from 'recharts'
 import { createColumnHelper } from '@tanstack/react-table'
-import type { UnderlyingPnl } from '../types/report'
+import type { UnderlyingPnl, MatchedTrade } from '../types/report'
 
 const col = createColumnHelper<UnderlyingPnl>()
 const undCols = [
@@ -22,6 +24,24 @@ const undCols = [
 export default function InstrumentAnalysis() {
   const { state } = useReport()
   const ins = state.report!.instruments
+  const trades = state.report!.trade_log.trades
+
+  // Group trades by underlying, sorted by trade count desc, top 4
+  const tokenSpotlights = useMemo(() => {
+    const grouped = new Map<string, MatchedTrade[]>()
+    for (const trade of trades) {
+      const existing = grouped.get(trade.underlying)
+      if (existing) {
+        existing.push(trade)
+      } else {
+        grouped.set(trade.underlying, [trade])
+      }
+    }
+
+    return Array.from(grouped.entries())
+      .sort((a, b) => b[1].length - a[1].length)
+      .slice(0, 4)
+  }, [trades])
 
   const comparison = [
     { name: 'Perps', pnl: ins.perps_pnl, count: ins.perps_count },
@@ -34,6 +54,20 @@ export default function InstrumentAnalysis() {
 
   return (
     <div className="space-y-6">
+      {/* Token Spotlights */}
+      {tokenSpotlights.length > 0 && (
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+            Top Tokens
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {tokenSpotlights.map(([underlying, tokenTrades]) => (
+              <TokenSpotlight key={underlying} underlying={underlying} trades={tokenTrades} />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard label="Perps P&L" value={formatCurrency(ins.perps_pnl)} valueColor={pnlColor(ins.perps_pnl)} subtext={`${ins.perps_count} trades`} />
         <StatCard label="Options P&L" value={formatCurrency(ins.options_pnl)} valueColor={pnlColor(ins.options_pnl)} subtext={`${ins.options_count} trades`} />

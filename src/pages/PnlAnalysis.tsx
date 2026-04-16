@@ -3,6 +3,8 @@ import Card from '../components/Card'
 import DataTable from '../components/DataTable'
 import DailyHeatmap from '../components/DailyHeatmap'
 import TimeHeatmap from '../components/TimeHeatmap'
+import TradingCalendar from '../components/TradingCalendar'
+import PeriodComparison from '../components/PeriodComparison'
 import ChartWrapper, { darkTooltipStyle } from '../components/ChartWrapper'
 import { formatCurrency, formatCurrencyFull, formatPercent, pnlColor } from '../lib/utils'
 import { fmtCurrencyFull } from '../lib/chart-helpers'
@@ -39,6 +41,16 @@ export default function PnlAnalysis() {
       {/* 2D Time Heatmap */}
       {state.report!.trade_log.trades.length > 0 && (
         <TimeHeatmap trades={state.report!.trade_log.trades} />
+      )}
+
+      {/* Trading Calendar */}
+      {p.daily_pnl.length > 0 && (
+        <TradingCalendar dailyPnl={p.daily_pnl} />
+      )}
+
+      {/* Period Comparison */}
+      {p.monthly.length >= 2 && (
+        <PeriodComparison monthly={p.monthly} />
       )}
 
       {/* Day of Week */}

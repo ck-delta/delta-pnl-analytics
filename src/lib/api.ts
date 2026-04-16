@@ -30,22 +30,21 @@ export async function analyzePortfolio(
 }
 
 /**
- * AI advice — calls backend, then normalizes response to match frontend interface.
+ * AI advice -- calls backend, then normalizes response to match frontend interface.
  *
  * Backend returns: { grade, summary, strengths[], weaknesses[], recommendations[],
- *                    kelly_full, kelly_half, pareto_insight, overall_score, ... }
+ *                    pareto_insight, overall_score, ... }
  *
  * Frontend expects: { grade, summary, whats_working[], whats_not_working[],
- *                     how_to_improve[], kelly_criterion{}, bottom_line, key_metrics[] }
+ *                     how_to_improve[], bottom_line, key_metrics[], overall_score }
  */
 export async function fetchAdvice(
   report: DeltaReportData,
-  tone: 'helpful' | 'roast',
 ): Promise<any> {
   const response = await fetch('/api/advice', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ report, tone }),
+    body: JSON.stringify({ report, tone: 'helpful' }),
   })
   if (!response.ok) throw new Error(`Advice request failed: ${response.status}`)
   const raw = await response.json()
@@ -77,11 +76,6 @@ export async function fetchAdvice(
       text: typeof r === 'string' ? r : r.text || '',
       tab: typeof r === 'object' && r.related_tab != null ? TAB_NAMES[r.related_tab] : undefined,
     })),
-    kelly_criterion: {
-      full_kelly_pct: raw.kelly_full ?? 0,
-      half_kelly_pct: raw.kelly_half ?? 0,
-      explanation: raw.pareto_insight || 'Kelly Criterion calculates optimal position sizing based on your win rate and payoff ratio.',
-    },
     bottom_line: raw.pareto_insight || raw.summary || '',
     overall_score: raw.overall_score ?? 0,
     dimensions: raw.dimensions || {},
