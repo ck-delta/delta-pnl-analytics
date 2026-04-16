@@ -84,13 +84,16 @@ export async function fetchAllDeltaData(
   const productsMap: Record<number, any> = {}
   for (const p of products) productsMap[p.id] = p
 
-  // Step 2: Fetch fills (paginated)
+  // Step 2: Fetch fills (paginated) — must set start_time or Delta only returns recent fills
   onProgress({ step: 'Fetching fill history...', stepIndex: 2, totalSteps: 6, percent: 15 })
   const fills: any[] = []
   let afterCursor: string | null = null
   let page = 0
+  // Default: fetch last 2 years of fills (microsecond timestamps)
+  const twoYearsAgo = String(Math.floor((Date.now() - 2 * 365 * 86400000) * 1000))
+  const now = String(Math.floor(Date.now() * 1000))
   while (true) {
-    const params: string[] = ['page_size=50']
+    const params: string[] = ['page_size=50', `start_time=${twoYearsAgo}`, `end_time=${now}`]
     if (afterCursor) params.push(`after=${afterCursor}`)
     const qs = params.join('&')
     const data = await makeRequest(apiKey, apiSecret, 'GET', '/v2/fills', qs)
@@ -132,12 +135,12 @@ export async function fetchAllDeltaData(
     }
   }
 
-  // Step 3: Fetch wallet transactions (paginated)
+  // Step 3: Fetch wallet transactions (paginated) — also with full date range
   onProgress({ step: 'Fetching wallet transactions...', stepIndex: 3, totalSteps: 6, percent: 60 })
   const transactions: any[] = []
   afterCursor = null
   while (true) {
-    const params: string[] = ['page_size=50']
+    const params: string[] = ['page_size=50', `start_time=${twoYearsAgo}`, `end_time=${now}`]
     if (afterCursor) params.push(`after=${afterCursor}`)
     const qs = params.join('&')
     const data = await makeRequest(apiKey, apiSecret, 'GET', '/v2/wallet/transactions', qs)
