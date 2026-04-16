@@ -1,6 +1,7 @@
 import { useReport } from '../context/ReportContext'
 import StatCard from '../components/StatCard'
 import Card from '../components/Card'
+import TradeReplay from '../components/TradeReplay'
 import ChartWrapper, { darkTooltipStyle } from '../components/ChartWrapper'
 import { formatCurrency, formatPercent, pnlColor } from '../lib/utils'
 import { fmtCurrencyFull, fmtPercent } from '../lib/chart-helpers'
@@ -74,6 +75,11 @@ export default function RiskMetrics() {
             </AreaChart>
           </ChartWrapper>
         </Card>
+      )}
+
+      {/* Trade Replay */}
+      {r.equity_curve.length > 2 && (
+        <TradeReplay equityCurve={r.equity_curve} />
       )}
 
       {/* P&L Distribution */}

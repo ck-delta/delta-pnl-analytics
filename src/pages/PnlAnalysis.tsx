@@ -1,6 +1,8 @@
 import { useReport } from '../context/ReportContext'
 import Card from '../components/Card'
 import DataTable from '../components/DataTable'
+import DailyHeatmap from '../components/DailyHeatmap'
+import TimeHeatmap from '../components/TimeHeatmap'
 import ChartWrapper, { darkTooltipStyle } from '../components/ChartWrapper'
 import { formatCurrency, formatCurrencyFull, formatPercent, pnlColor } from '../lib/utils'
 import { fmtCurrencyFull } from '../lib/chart-helpers'
@@ -31,28 +33,13 @@ export default function PnlAnalysis() {
         <DataTable data={p.monthly} columns={monthCols as any} pageSize={12} />
       </Card>
 
-      {/* Daily P&L Heatmap placeholder */}
-      <Card title="Daily P&L Heatmap">
-        <div className="flex flex-wrap gap-[2px]">
-          {p.daily_pnl.map((d) => {
-            const maxAbs = Math.max(...p.daily_pnl.map((x) => Math.abs(x.pnl)), 1)
-            const intensity = Math.min(Math.abs(d.pnl) / maxAbs, 1)
-            const bg = d.pnl > 0
-              ? `rgba(0,168,118,${0.15 + intensity * 0.7})`
-              : d.pnl < 0
-                ? `rgba(235,84,84,${0.15 + intensity * 0.7})`
-                : 'var(--color-bg-secondary)'
-            return (
-              <div
-                key={d.date}
-                className="w-[14px] h-[14px] rounded-[2px] cursor-pointer"
-                style={{ background: bg }}
-                title={`${d.date}: ${formatCurrencyFull(d.pnl)} (${d.trades} trades)`}
-              />
-            )
-          })}
-        </div>
-      </Card>
+      {/* Daily P&L Heatmap */}
+      <DailyHeatmap data={p.daily_pnl} />
+
+      {/* 2D Time Heatmap */}
+      {state.report!.trade_log.trades.length > 0 && (
+        <TimeHeatmap trades={state.report!.trade_log.trades} />
+      )}
 
       {/* Day of Week */}
       <Card title="P&L by Day of Week">

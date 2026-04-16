@@ -328,8 +328,126 @@ export function computeAnalytics(
       }
     })
 
+  // Funding analysis from wallet transactions
+  const fundingTxnsByProduct = new Map<string, { token: string; pnl: number; count: number }>()
+  const dailyFundingMap = new Map<string, number>()
+  let fundingPaidLong = 0, fundingReceivedShort = 0
+  for (const tx of fundingTxns) {
+    const amt = parseFloat(tx.amount || '0')
+    const pid = tx.product_id
+    const prod = productsMap[pid] || {}
+    const token = prod.underlying_asset?.symbol || tx.asset_symbol || 'Unknown'
+    const cur = fundingTxnsByProduct.get(token) || { token, pnl: 0, count: 0 }
+    cur.pnl += amt
+    cur.count++
+    fundingTxnsByProduct.set(token, cur)
+
+    const d = (tx.created_at || '').slice(0, 10)
+    if (d) dailyFundingMap.set(d, (dailyFundingMap.get(d) || 0) + amt)
+
+    if (amt < 0) fundingPaidLong += amt
+    else fundingReceivedShort += amt
+  }
+  const fundingByToken = [...fundingTxnsByProduct.values()].sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl))
+  const dailyFundingArr = [...dailyFundingMap.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, pnl]) => ({ date, pnl: r2(pnl) }))
+  let fundCum = 0
+  const cumulativeFunding = dailyFundingArr.map((d) => { fundCum += d.pnl; return { date: d.date, cumulative: r2(fundCum) } })
+
+  // Monthly funding vs trading
+  const monthlyFundVsTrade: { month: string; trading_pnl: number; funding_pnl: number }[] = []
+  const allMonths = new Set([...monthlyMap.keys(), ...dailyFundingArr.map((d) => d.date.slice(0, 7))])
+  for (const m of [...allMonths].sort()) {
+    const trading = monthlyMap.get(m)?.net ?? 0
+    const fund = dailyFundingArr.filter((d) => d.date.startsWith(m)).reduce((s, d) => s + d.pnl, 0)
+    monthlyFundVsTrade.push({ month: m, trading_pnl: r2(trading), funding_pnl: r2(fund) })
+  }
+
+  // Correlation matrix (Pearson) — only for tokens with 10+ daily observations
+  const tokenDailyPnl = new Map<string, Map<string, number>>()
+  for (const t of trades) {
+    const d = t.exit_time.slice(0, 10)
+    const tok = t.underlying
+    if (!tokenDailyPnl.has(tok)) tokenDailyPnl.set(tok, new Map())
+    tokenDailyPnl.get(tok)!.set(d, (tokenDailyPnl.get(tok)!.get(d) || 0) + t.net_pnl)
+  }
+  const corrTokens = [...tokenDailyPnl.entries()].filter(([, m]) => m.size >= 5).map(([t]) => t).slice(0, 10)
+  const allDates = [...new Set(dailyPnl.map((d) => d.date))]
+  const corrMatrix: number[][] = []
+  for (const t1 of corrTokens) {
+    const row: number[] = []
+    const m1 = tokenDailyPnl.get(t1)!
+    const v1 = allDates.map((d) => m1.get(d) || 0)
+    for (const t2 of corrTokens) {
+      const m2 = tokenDailyPnl.get(t2)!
+      const v2 = allDates.map((d) => m2.get(d) || 0)
+      row.push(r2(pearson(v1, v2)))
+    }
+    corrMatrix.push(row)
+  }
+
+  // Expiry analysis for options
+  const optionTrades = trades.filter((t) => t.instrument_type === 'call' || t.instrument_type === 'put')
+  const expiryTypeMap = new Map<string, { pnl: number; count: number; wins: number }>()
+  const dteMap = new Map<string, { pnl: number; count: number }>()
+  const expiryDateMap = new Map<string, { pnl: number; count: number }>()
+  for (const t of optionTrades) {
+    // Parse option symbol: e.g. C-ETH-2340-160426 → expiry = 160426
+    const parts = t.product_symbol.split('-')
+    const expiryStr = parts[parts.length - 1] || ''
+    let expiryDate = ''
+    if (expiryStr.length === 6) {
+      const dd = expiryStr.slice(0, 2), mm = expiryStr.slice(2, 4), yy = expiryStr.slice(4, 6)
+      expiryDate = `20${yy}-${mm}-${dd}`
+    }
+
+    // DTE calculation
+    let dte = 0
+    if (expiryDate && t.entry_time) {
+      try {
+        const entryMs = new Date(t.entry_time).getTime()
+        const expiryMs = new Date(expiryDate).getTime()
+        dte = Math.max(0, Math.floor((expiryMs - entryMs) / 86400000))
+      } catch { /* ignore */ }
+    }
+
+    // Classify expiry type
+    let expiryType = 'Other'
+    if (dte <= 1) expiryType = 'Daily'
+    else if (dte <= 7) expiryType = 'Weekly'
+    else if (dte <= 31) expiryType = 'Monthly'
+    else expiryType = 'Quarterly+'
+
+    const et = expiryTypeMap.get(expiryType) || { pnl: 0, count: 0, wins: 0 }
+    et.pnl += t.net_pnl; et.count++; if (t.net_pnl > 0) et.wins++
+    expiryTypeMap.set(expiryType, et)
+
+    // DTE bucket
+    let dteBucket = '7+ days'
+    if (dte === 0) dteBucket = '0-day'
+    else if (dte <= 3) dteBucket = '1-3 days'
+    else if (dte <= 7) dteBucket = '4-7 days'
+    const db = dteMap.get(dteBucket) || { pnl: 0, count: 0 }
+    db.pnl += t.net_pnl; db.count++
+    dteMap.set(dteBucket, db)
+
+    // By expiry date
+    if (expiryDate) {
+      const ed = expiryDateMap.get(expiryDate) || { pnl: 0, count: 0 }
+      ed.pnl += t.net_pnl; ed.count++
+      expiryDateMap.set(expiryDate, ed)
+    }
+  }
+
+  // Monthly streak
+  let profMonthStreak = 0, bestMonthStreak = 0, curMonthStreak = 0
+  for (const m of monthly) {
+    if (m.net_pnl > 0) { curMonthStreak++; bestMonthStreak = Math.max(bestMonthStreak, curMonthStreak) }
+    else curMonthStreak = 0
+  }
+  profMonthStreak = curMonthStreak
+
   const projections = computeProjections(trades, dailyPnl)
-  const whatIfs = computeWhatIfs(trades, netPnl)
+  const whatIfs = computeWhatIfs(trades, netPnl, undMap)
   const achievements = computeAchievements(trades, dailyPnl, winRate, bestWs, underlyings)
 
   const report: DeltaReportData = {
@@ -391,24 +509,28 @@ export function computeAnalytics(
       puts_count: puts.length,
       pnl_by_underlying: pnlByUnd.slice(0, 50),
       capital_vs_returns: pnlByUnd.slice(0, 50).map((u) => ({ underlying: u.underlying, capital: u.capital, return_pct: u.avg_return, pnl: u.pnl })),
-      long_vs_short: [],
-      correlation_matrix: { tokens: [], matrix: [] },
+      long_vs_short: pnlByUnd.slice(0, 15).map((u) => ({
+        underlying: u.underlying,
+        long_pnl: r2(trades.filter((t) => t.underlying === u.underlying && t.direction === 'long').reduce((s, t) => s + t.net_pnl, 0)),
+        short_pnl: r2(trades.filter((t) => t.underlying === u.underlying && t.direction === 'short').reduce((s, t) => s + t.net_pnl, 0)),
+      })),
+      correlation_matrix: { tokens: corrTokens, matrix: corrMatrix },
     },
     funding: {
       total_funding_pnl: r2(totalFunding),
-      funding_by_token: [],
-      daily_funding: [],
-      cumulative_funding: [],
-      monthly_funding_vs_trading: [],
+      funding_by_token: fundingByToken.map((f) => ({ token: f.token, pnl: r2(f.pnl), count: f.count })),
+      daily_funding: dailyFundingArr,
+      cumulative_funding: cumulativeFunding,
+      monthly_funding_vs_trading: monthlyFundVsTrade,
       avg_funding_rate: 0,
-      funding_paid_as_long: 0,
-      funding_received_as_short: 0,
+      funding_paid_as_long: r2(fundingPaidLong),
+      funding_received_as_short: r2(fundingReceivedShort),
     },
     expiry: {
-      has_options: options.length > 0,
-      by_expiry_type: [],
-      by_dte: [],
-      by_expiry_date: [],
+      has_options: optionTrades.length > 0,
+      by_expiry_type: [...expiryTypeMap.entries()].map(([type, d]) => ({ type, pnl: r2(d.pnl), count: d.count, win_rate: d.count ? r1(d.wins / d.count * 100) : 0 })),
+      by_dte: ['0-day', '1-3 days', '4-7 days', '7+ days'].map((bucket) => { const d = dteMap.get(bucket) || { pnl: 0, count: 0 }; return { bucket, pnl: r2(d.pnl), count: d.count } }),
+      by_expiry_date: [...expiryDateMap.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, d]) => ({ date, pnl: r2(d.pnl), count: d.count })),
     },
     risk_metrics: {
       sharpe_ratio: r2(sharpe),
@@ -464,8 +586,8 @@ export function computeAnalytics(
       best_win_streak: bestWs,
       current_loss_streak: ls,
       worst_loss_streak: worstLs,
-      profitable_month_streak: 0,
-      best_month_streak: 0,
+      profitable_month_streak: profMonthStreak,
+      best_month_streak: bestMonthStreak,
       achievements,
     },
   }
@@ -483,6 +605,22 @@ function sum(arr: any[], key: string): number {
 function r1(n: number): number { return Math.round(n * 10) / 10 }
 function r2(n: number): number { return Math.round(n * 100) / 100 }
 function r4(n: number): number { return Math.round(n * 10000) / 10000 }
+
+function pearson(x: number[], y: number[]): number {
+  const n = x.length
+  if (n < 3) return 0
+  const mx = x.reduce((a, b) => a + b, 0) / n
+  const my = y.reduce((a, b) => a + b, 0) / n
+  let num = 0, dx = 0, dy = 0
+  for (let i = 0; i < n; i++) {
+    const xi = x[i] - mx, yi = y[i] - my
+    num += xi * yi
+    dx += xi * xi
+    dy += yi * yi
+  }
+  const denom = Math.sqrt(dx * dy)
+  return denom > 0 ? num / denom : 0
+}
 
 function makeHistogram(values: number[], numBins: number): HistogramBin[] {
   if (!values.length) return []
@@ -544,7 +682,7 @@ function computeProjections(trades: MatchedTrade[], dailyPnl: { date: string; pn
   }
 }
 
-function computeWhatIfs(trades: MatchedTrade[], currentPnl: number): WhatIfScenario[] {
+function computeWhatIfs(trades: MatchedTrade[], currentPnl: number, undMap: Map<string, any>): WhatIfScenario[] {
   if (!trades.length) return []
   const scenarios: WhatIfScenario[] = []
   const sortedByPnl = [...trades].sort((a, b) => a.net_pnl - b.net_pnl)
@@ -565,19 +703,29 @@ function computeWhatIfs(trades: MatchedTrade[], currentPnl: number): WhatIfScena
   // Remove worst underlying
   const undPnl = new Map<string, number>()
   const undCount = new Map<string, number>()
-  for (const t of trades) {
-    undPnl.set(t.underlying, (undPnl.get(t.underlying) || 0) + t.net_pnl)
-    undCount.set(t.underlying, (undCount.get(t.underlying) || 0) + 1)
-  }
-  let worstUnd = '', worstPnl = 0
-  for (const [u, p] of undPnl) { if (p < worstPnl) { worstUnd = u; worstPnl = p } }
-  if (worstUnd && worstPnl < 0) {
-    const newPnl = currentPnl - worstPnl
+  for (const [u, d] of undMap) { undPnl.set(u, d.pnl); undCount.set(u, d.trades) }
+  let worstUnd = '', worstPnlVal = 0
+  for (const [u, p] of undPnl) { if (p < worstPnlVal) { worstUnd = u; worstPnlVal = p } }
+  if (worstUnd && worstPnlVal < 0) {
+    const newPnl = currentPnl - worstPnlVal
     scenarios.push({
       id: `remove_${worstUnd}`, label: `Stop trading ${worstUnd}`, icon: 'ban',
       original_pnl: r2(currentPnl), new_pnl: r2(newPnl),
       improvement_pct: currentPnl ? r1(((newPnl - currentPnl) / Math.abs(currentPnl)) * 100) : 0,
       detail: `${undCount.get(worstUnd) || 0} fewer trades, less exposure to ${worstUnd}`,
+    })
+  }
+
+  // Only trade top 3
+  const top3 = [...undPnl.entries()].sort(([, a], [, b]) => b - a).slice(0, 3)
+  const top3Names = new Set(top3.map(([u]) => u))
+  const top3Pnl = trades.filter((t) => top3Names.has(t.underlying)).reduce((s, t) => s + t.net_pnl, 0)
+  if (top3Pnl > currentPnl && undPnl.size > 3) {
+    scenarios.push({
+      id: 'top3_only', label: `Only trade ${[...top3Names].join(', ')}`, icon: 'target',
+      original_pnl: r2(currentPnl), new_pnl: r2(top3Pnl),
+      improvement_pct: currentPnl ? r1(((top3Pnl - currentPnl) / Math.abs(currentPnl)) * 100) : 0,
+      detail: `Focus on your top 3, fewer trades, higher win rate`,
     })
   }
 
