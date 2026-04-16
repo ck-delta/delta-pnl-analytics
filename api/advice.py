@@ -771,7 +771,7 @@ def generate_rule_based_advice(m: dict, score: float, grade: str, tone: str) -> 
             ))
         if len(weaknesses) < 3:
             weaknesses.append(_bullet(
-                f"{'No obvious other weaknesses. Don\\'t get cocky -- the market is always watching.' if is_roast else 'Continue monitoring performance metrics for emerging weaknesses as market conditions change.'}",
+                "No obvious other weaknesses. Do not get cocky -- the market is always watching." if is_roast else "Continue monitoring performance metrics for emerging weaknesses as market conditions change.",
                 TAB_AI_ADVICE
             ))
 
