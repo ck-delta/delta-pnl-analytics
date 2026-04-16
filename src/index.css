@@ -1,0 +1,326 @@
+@import "tailwindcss";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@theme {
+  --font-sans: "Geist Variable", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+
+  /* Backgrounds — layered depth system */
+  --color-bg-depth: #101013;
+  --color-bg-surface: #111114;
+  --color-bg-surface-alt: #18191e;
+  --color-bg-primary: #22242c;
+  --color-bg-secondary: #2d303a;
+  --color-bg-tertiary: #353845;
+  --color-bg-header: #262832;
+  --color-bg-modal: #141418;
+  --color-bg-input: #191a1f;
+  --color-bg-wallet: #212126;
+
+  /* Brand — Delta India Orange */
+  --color-brand: #fe6c02;
+  --color-brand-hover: #e76202;
+  --color-brand-muted: #2f231b;
+  --color-brand-text: #fe8935;
+  --color-brand-disabled: #592705;
+  --color-brand-border: #fe8935;
+
+  /* Semantic — Profit/Loss */
+  --color-positive: #00a876;
+  --color-positive-text: #33b991;
+  --color-positive-muted: #003224;
+  --color-negative: #eb5454;
+  --color-negative-text: #ff5c5c;
+  --color-negative-muted: #411516;
+  --color-warning: #ffd033;
+  --color-highlight: #f6a609;
+
+  /* Accent */
+  --color-accent-blue: #3895ed;
+  --color-accent-blue-text: #58a7f0;
+  --color-accent-blue-muted: #033461;
+  --color-accent-purple: #9276ff;
+  --color-accent-purple-text: #a68fff;
+  --color-accent-purple-muted: #332a5d;
+
+  /* Text hierarchy */
+  --color-text-on-bg: #ffffff;
+  --color-text-primary: #e1e1e2;
+  --color-text-secondary: #8e9298;
+  --color-text-tertiary: #71747a;
+  --color-text-quaternary: #44464a;
+
+  /* Borders & dividers */
+  --color-separator: #212126;
+  --color-separator-2: #262832;
+  --color-separator-3: #5a606b;
+
+  /* Chart */
+  --color-chart-tooltip: #212126;
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
+html {
+  background-color: var(--color-bg-depth);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--color-bg-depth);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-bg-secondary);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-separator-3);
+}
+
+/* Number/money values — always monospace */
+.font-mono-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================
+   COMPONENT BASE STYLES
+   ============================================ */
+
+/* Card */
+.card {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-bg-secondary);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Stat Card */
+.stat-card {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-bg-secondary);
+  border-radius: 12px;
+  padding: 20px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.stat-card-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.stat-card-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* Buttons */
+.btn-primary {
+  background: var(--color-brand);
+  color: var(--color-text-on-bg);
+  font-weight: 600;
+  font-size: 14px;
+  border: none;
+  border-radius: 4px;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-brand-hover);
+}
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.btn-primary:disabled {
+  background: var(--color-brand-disabled);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-secondary {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid var(--color-separator-2);
+  border-radius: 4px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.btn-secondary:hover {
+  background: var(--color-bg-tertiary);
+}
+
+/* Inputs */
+.input {
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-separator);
+  border-radius: 2px;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  padding: 12px 16px;
+  width: 100%;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.input:focus {
+  border-color: var(--color-brand);
+}
+.input::placeholder {
+  color: var(--color-text-tertiary);
+}
+.input-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+/* Tables */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.data-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-separator);
+  cursor: pointer;
+  user-select: none;
+}
+.data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--color-text-primary);
+}
+.data-table tbody tr:hover {
+  background: var(--color-bg-surface-alt);
+}
+
+/* Loading shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-primary) 25%,
+    var(--color-bg-secondary) 50%,
+    var(--color-bg-primary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* Spin animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Fade in */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.5s ease forwards;
+}
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+}
+.badge-positive {
+  background: var(--color-positive-muted);
+  color: var(--color-positive-text);
+}
+.badge-negative {
+  background: var(--color-negative-muted);
+  color: var(--color-negative-text);
+}
+.badge-brand {
+  background: var(--color-brand-muted);
+  color: var(--color-brand-text);
+}
+
+/* Chart tooltip */
+.chart-tooltip {
+  background: var(--color-chart-tooltip) !important;
+  border: 1px solid var(--color-separator) !important;
+  border-radius: 4px !important;
+  padding: 8px 12px !important;
+  font-size: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Scroll snap for AI advice slides */
+.snap-container {
+  scroll-snap-type: y mandatory;
+  overflow-y: scroll;
+  height: 100vh;
+}
+.snap-slide {
+  scroll-snap-align: start;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
