@@ -29,7 +29,7 @@ async function makeRequest(
   queryString = '',
 ): Promise<any> {
   const timestamp = String(Math.floor(Date.now() / 1000))
-  const message = method + timestamp + path + queryString
+  const message = method + timestamp + path + (queryString ? '?' + queryString : '')
   const signature = await hmacSign(apiSecret, message)
 
   const url = BASE_URL + path + (queryString ? '?' + queryString : '')
