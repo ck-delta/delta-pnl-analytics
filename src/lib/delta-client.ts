@@ -115,15 +115,21 @@ export async function fetchAllDeltaData(
   }
 
   // Step 2b: Fetch missing products (expired options, etc.)
+  // For active traders this can be 100+ products — show progress
   const fillProductIds = new Set(fills.map((f: any) => f.product_id).filter(Boolean))
   const missingIds = [...fillProductIds].filter((id) => !productsMap[id])
   if (missingIds.length > 0) {
-    onProgress({
-      step: 'Fetching product details...',
-      stepIndex: 2, totalSteps: 6, percent: 57,
-      detail: `${missingIds.length} products to look up`,
-    })
+    let fetched = 0
     for (const pid of missingIds) {
+      fetched++
+      if (fetched % 5 === 1 || fetched === missingIds.length) {
+        onProgress({
+          step: 'Fetching product details...',
+          stepIndex: 2, totalSteps: 6,
+          percent: 55 + Math.round((fetched / missingIds.length) * 5),
+          detail: `${fetched} / ${missingIds.length} products`,
+        })
+      }
       try {
         const pResp = await makeRequest(apiKey, apiSecret, 'GET', `/v2/products/${pid}`)
         if (pResp.success && pResp.result) {
