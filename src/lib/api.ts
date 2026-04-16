@@ -1,69 +1,37 @@
 import type { DeltaReportData, LoadingProgress } from '../types/report'
+import { fetchAllDeltaData } from './delta-client'
+import { matchTrades, computeAnalytics } from './analytics-engine'
 
+/**
+ * Client-side portfolio analysis.
+ * All Delta API calls happen from the user's browser (their whitelisted IP).
+ * API keys never leave the browser.
+ */
 export async function analyzePortfolio(
   apiKey: string,
   apiSecret: string,
   onProgress: (progress: LoadingProgress) => void,
 ): Promise<DeltaReportData> {
-  const response = await fetch('/api/analyze', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ api_key: apiKey, api_secret: apiSecret }),
-  })
+  // Step 1-4: Fetch all data from Delta (browser → Delta API)
+  const { fills, transactions, positions, productsMap, balances } =
+    await fetchAllDeltaData(apiKey, apiSecret, onProgress)
 
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(text || `HTTP ${response.status}`)
-  }
+  // Step 5: Match trades (in browser)
+  onProgress({ step: 'Matching trades...', stepIndex: 5, totalSteps: 7, percent: 80, detail: `${fills.length} fills to process` })
+  const matchedTrades = matchTrades(fills, productsMap)
 
-  if (!response.body) {
-    throw new Error('No response body — streaming not supported')
-  }
+  // Step 6: Compute analytics (in browser)
+  onProgress({ step: 'Computing analytics...', stepIndex: 6, totalSteps: 7, percent: 90, detail: `${matchedTrades.length} trades matched` })
+  const report = computeAnalytics(matchedTrades, fills, transactions, positions, productsMap, balances)
 
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
+  onProgress({ step: 'Done!', stepIndex: 7, totalSteps: 7, percent: 100 })
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-
-    buffer += decoder.decode(value, { stream: true })
-    const parts = buffer.split('\n\n')
-    buffer = parts.pop() ?? ''
-
-    for (const part of parts) {
-      if (!part.trim()) continue
-      const lines = part.split('\n')
-      let eventType = ''
-      let eventData = ''
-
-      for (const line of lines) {
-        if (line.startsWith('event: ')) eventType = line.slice(7)
-        else if (line.startsWith('data: ')) eventData = line.slice(6)
-      }
-
-      if (!eventType || !eventData) continue
-
-      try {
-        const data = JSON.parse(eventData)
-        if (eventType === 'progress') {
-          onProgress(data as LoadingProgress)
-        } else if (eventType === 'error') {
-          throw new Error(data.message || 'Analysis failed')
-        } else if (eventType === 'complete') {
-          return data as DeltaReportData
-        }
-      } catch (e) {
-        if (e instanceof SyntaxError) continue
-        throw e
-      }
-    }
-  }
-
-  throw new Error('Stream ended without complete event')
+  return report
 }
 
+/**
+ * AI advice still goes through the backend (needs Groq API key).
+ */
 export async function fetchAdvice(
   report: DeltaReportData,
   tone: 'helpful' | 'roast',
