@@ -110,6 +110,28 @@ export async function fetchAllDeltaData(
     if (!afterCursor || batch.length < 50) break
   }
 
+  // Step 2b: Fetch missing products (expired options, etc.)
+  const fillProductIds = new Set(fills.map((f: any) => f.product_id).filter(Boolean))
+  const missingIds = [...fillProductIds].filter((id) => !productsMap[id])
+  if (missingIds.length > 0) {
+    onProgress({
+      step: 'Fetching product details...',
+      stepIndex: 2, totalSteps: 6, percent: 57,
+      detail: `${missingIds.length} products to look up`,
+    })
+    for (const pid of missingIds) {
+      try {
+        const pResp = await makeRequest(apiKey, apiSecret, 'GET', `/v2/products/${pid}`)
+        if (pResp.success && pResp.result) {
+          productsMap[pResp.result.id] = pResp.result
+          products.push(pResp.result)
+        }
+      } catch {
+        // Product might be delisted — skip
+      }
+    }
+  }
+
   // Step 3: Fetch wallet transactions (paginated)
   onProgress({ step: 'Fetching wallet transactions...', stepIndex: 3, totalSteps: 6, percent: 60 })
   const transactions: any[] = []
