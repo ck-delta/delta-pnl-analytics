@@ -89,11 +89,12 @@ export async function fetchAllDeltaData(
   const fills: any[] = []
   let afterCursor: string | null = null
   let page = 0
-  // Default: fetch last 2 years of fills (microsecond timestamps)
-  const twoYearsAgo = String(Math.floor((Date.now() - 2 * 365 * 86400000) * 1000))
+  // Fetch ALL fills since account creation (microsecond timestamps)
+  // Use Jan 1 2020 as safe lower bound — covers any Delta Exchange India account
+  const allTimeStart = String(Math.floor(new Date('2020-01-01').getTime() * 1000))
   const now = String(Math.floor(Date.now() * 1000))
   while (true) {
-    const params: string[] = ['page_size=50', `start_time=${twoYearsAgo}`, `end_time=${now}`]
+    const params: string[] = ['page_size=50', `start_time=${allTimeStart}`, `end_time=${now}`]
     if (afterCursor) params.push(`after=${afterCursor}`)
     const qs = params.join('&')
     const data = await makeRequest(apiKey, apiSecret, 'GET', '/v2/fills', qs)
@@ -140,7 +141,7 @@ export async function fetchAllDeltaData(
   const transactions: any[] = []
   afterCursor = null
   while (true) {
-    const params: string[] = ['page_size=50', `start_time=${twoYearsAgo}`, `end_time=${now}`]
+    const params: string[] = ['page_size=50', `start_time=${allTimeStart}`, `end_time=${now}`]
     if (afterCursor) params.push(`after=${afterCursor}`)
     const qs = params.join('&')
     const data = await makeRequest(apiKey, apiSecret, 'GET', '/v2/wallet/transactions', qs)
