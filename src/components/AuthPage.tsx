@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Lock, Eye, EyeOff, ExternalLink, ShieldCheck } from 'lucide-react'
+import { Lock, Eye, EyeOff, ExternalLink, ShieldCheck, Sparkles } from 'lucide-react'
 import { useReport } from '../context/ReportContext'
 import { analyzePortfolio } from '../lib/api'
 
@@ -26,6 +26,34 @@ export default function AuthPage() {
       dispatch({ type: 'SET_REPORT', payload: report })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Analysis failed'
+      setLocalError(msg)
+      dispatch({ type: 'SET_ERROR', payload: msg })
+    }
+  }
+
+  async function handleSampleReport() {
+    setLocalError('')
+    dispatch({ type: 'SET_LOADING' })
+
+    // Simulate a brief loading sequence so the hedge-fund loading screen has a chance to play
+    const steps = [
+      { step: 'Loading sample data...', stepIndex: 0, totalSteps: 4, percent: 10 },
+      { step: 'Matching trades...', stepIndex: 1, totalSteps: 4, percent: 40 },
+      { step: 'Computing analytics...', stepIndex: 2, totalSteps: 4, percent: 70 },
+      { step: 'Preparing your Wrapped...', stepIndex: 3, totalSteps: 4, percent: 95 },
+    ]
+    for (const p of steps) {
+      dispatch({ type: 'SET_PROGRESS', payload: p })
+      await new Promise((r) => setTimeout(r, 400))
+    }
+
+    try {
+      const resp = await fetch('/demo-report.json')
+      if (!resp.ok) throw new Error(`Sample unavailable (${resp.status})`)
+      const report = await resp.json()
+      dispatch({ type: 'SET_REPORT', payload: report })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load sample report'
       setLocalError(msg)
       dispatch({ type: 'SET_ERROR', payload: msg })
     }
@@ -98,6 +126,33 @@ export default function AuthPage() {
           <button type="submit" disabled={!canSubmit} className="btn-primary w-full text-base py-3">
             Analyze My Trades
           </button>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px" style={{ background: 'var(--color-separator)' }} />
+            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
+              No keys? Try a sample
+            </span>
+            <div className="flex-1 h-px" style={{ background: 'var(--color-separator)' }} />
+          </div>
+
+          {/* Sample Report Button */}
+          <button
+            type="button"
+            onClick={handleSampleReport}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded text-sm font-semibold transition-colors"
+            style={{
+              background: 'var(--color-bg-secondary)',
+              color: 'var(--color-brand-text)',
+              border: '1px solid var(--color-brand-muted)',
+            }}
+          >
+            <Sparkles size={14} />
+            Check Sample Report
+          </button>
+          <p className="text-[10px] text-center mt-2" style={{ color: 'var(--color-text-tertiary)' }}>
+            1,168 trades · BTC / ETH / SOL · perps + options (daily/weekly/monthly)
+          </p>
         </form>
 
         {/* Security Notice */}
