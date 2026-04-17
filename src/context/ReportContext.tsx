@@ -41,6 +41,10 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_PROGRESS':
       return { ...state, loadingProgress: action.payload }
     case 'SET_REPORT':
+      // TEMP: expose report to window for demo-data capture
+      if (typeof window !== 'undefined') {
+        ;(window as any).__deltaReport__ = action.payload
+      }
       return { ...state, report: action.payload, loading: false, loadingProgress: null, error: null, viewMode: 'wrapped' }
     case 'SET_ERROR':
       return { ...state, error: action.payload, loading: false }
